@@ -2,6 +2,7 @@ package lru
 
 import (
 	"testing"
+	"reflect"
 )
 
 type String string
@@ -50,7 +51,17 @@ func TestOnEvicted(t *testing.T) {
 
 	expect := []string{"key1", "k2"}
 
-	if len(expect) != len(keys) {
-		t.Fatalf("Call OnEvicted failed")
+	if !reflect.DeepEqual(expect, keys) {
+		t.Fatalf("Call OnEvicted failed, expect keys equals to %s", expect)
+	}
+}
+
+// TestAdd tests that a value can be added to cache
+func TestAdd(t *testing.T) {
+	lru := New(int64(0), nil)
+	lru.Add("key", String("1"))
+	lru.Add("key", String("1234"))
+	if lru.nbytes != int64(len("key") + len("1234")) {
+		t.Fatalf("expected 7 but got %d", lru.nbytes)
 	}
 }

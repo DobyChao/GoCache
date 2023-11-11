@@ -3,9 +3,9 @@ learn from https://github.com/geektutu/7days-golang/
 
 ## Schedule
 - [√] Step 1 - LRU (Least Recently Used) Caching Strategy
-- [×] Step 2 - Design a Flexiable Context Code
-- [×] Step 3 - Router with Trie-Tree Algorithm Code
-- [×] Step 4 - Group Control Code
-- [×] Step 5 - Middleware Mechanism Code
-- [×] Step 6 - Embeded Template Support Code
-- [×] Step 7 - Panic Recover & Make it Robust Code
+- [√] Step 2 - Single Machine Concurrent Cache
+- [×] Step 3 - Launch a HTTP Server
+- [×] Step 4 - Consistent Hash Algorithm
+- [×] Step 5 - Communication between Distributed Nodes
+- [×] Step 6 - Cache Breakdown & Single Flight
+- [×] Step 7 - Use Protobuf as RPC Data Exchange Type
