@@ -1,10 +1,10 @@
 package gocache
 
 import (
-	"testing"
-	"reflect"
-	"log"
 	"fmt"
+	"log"
+	"reflect"
+	"testing"
 )
 
 // simulate a slow database

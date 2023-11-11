@@ -1,8 +1,8 @@
 package lru
 
 import (
-	"testing"
 	"reflect"
+	"testing"
 )
 
 type String string
@@ -61,7 +61,7 @@ func TestAdd(t *testing.T) {
 	lru := New(int64(0), nil)
 	lru.Add("key", String("1"))
 	lru.Add("key", String("1234"))
-	if lru.nbytes != int64(len("key") + len("1234")) {
+	if lru.nbytes != int64(len("key")+len("1234")) {
 		t.Fatalf("expected 7 but got %d", lru.nbytes)
 	}
 }

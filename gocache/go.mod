@@ -1,10 +1,6 @@
-module example
+module gocache
 
 go 1.21.1
-
-require gocache v0.0.0
-
-replace gocache => ./gocache
 
 require github.com/gin-gonic/gin v1.9.1
 
