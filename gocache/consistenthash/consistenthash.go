@@ -11,9 +11,9 @@ type Hash func(data []byte) uint32
 
 // Map contains all hashed keys
 type Map struct {
-	hash     Hash // Hash function
-	replicas int // Virtual node multiplier
-	keys     []int // Hash ring
+	hash     Hash           // Hash function
+	replicas int            // Virtual node multiplier
+	keys     []int          // Hash ring
 	hashMap  map[int]string // Virtual node -> real node
 }
 
@@ -21,8 +21,8 @@ type Map struct {
 func New(replicas int, fn Hash) *Map {
 	m := &Map{
 		replicas: replicas,
-		hash: fn,
-		hashMap: make(map[int]string),
+		hash:     fn,
+		hashMap:  make(map[int]string),
 	}
 	if m.hash == nil {
 		m.hash = crc32.ChecksumIEEE
@@ -56,5 +56,5 @@ func (m *Map) Get(key string) string {
 		return m.keys[i] >= hash
 	})
 
-	return m.hashMap[m.keys[idx % len(m.keys)]]
+	return m.hashMap[m.keys[idx%len(m.keys)]]
 }

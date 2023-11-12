@@ -1,16 +1,27 @@
 package gocache
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"gocache/consistenthash"
+	"io"
+	"log"
 	"net/http"
+	"sync"
 )
 
-const defaultBasePath = "/_gocache/"
+const (
+	defaultBasePath = "/_gocache/"
+	defaultReplicas = 50
+)
 
 // HTTPPool implements PeerPicker for a pool of HTTP peers.
 type HTTPPool struct {
-	self     string // e.g. "localhost:8000"
-	basePath string // e.g. "/_gocache/"
+	self        string                 // e.g. "localhost:8000"
+	basePath    string                 // e.g. "/_gocache/"
+	mu          sync.Mutex             // guards peers and httpGetters
+	peers       *consistenthash.Map    // a map of peers
+	httpGetters map[string]*httpGetter // keyed by e.g. "http://10.0.0.2:8008"
 }
 
 // NewHTTPPool initializes an HTTP pool of peers.
@@ -22,10 +33,10 @@ func NewHTTPPool(self string) *HTTPPool {
 }
 
 func (p *HTTPPool) LoadRouters(router *gin.Engine) {
-	router.GET(p.basePath+"/:groupname/:key", p.getCache)
+	router.GET(p.basePath+"/:groupname/:key", p.handleGetCache)
 }
 
-func (p *HTTPPool) getCache(c *gin.Context) {
+func (p *HTTPPool) handleGetCache(c *gin.Context) {
 	groupname := c.Param("groupname")
 	key := c.Param("key")
 
@@ -44,42 +55,58 @@ func (p *HTTPPool) getCache(c *gin.Context) {
 	c.Data(http.StatusOK, "application/octet-stream", view.ByteSlice())
 }
 
-// 使用原生net/http库的写法
-/*
-// Log info with server name
-func (p *HTTPPool) Log(format string, v ...interface{}) {
-	log.Printf("[Server %s] %s", p.self, fmt.Sprintf(format, v...))
+// Set update the pool's list of peers.
+func (p *HTTPPool) Set(peers ...string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.peers = consistenthash.New(defaultReplicas, nil)
+	p.peers.Add(peers...)
+	p.httpGetters = make(map[string]*httpGetter, len(peers))
+	for _, peer := range peers {
+		p.httpGetters[peer] = &httpGetter{baseURL: peer + p.basePath}
+	}
 }
 
-// ServeHTTP handle all http requests
-func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !strings.HasPrefix(r.URL.Path, p.basePath) {
-		panic("HTTPPool serving unexpected path: " + r.URL.Path)
-	}
-	p.Log("%s %s", r.Method, r.URL.Path)
-	// /<basepath>/<groupname>/<key> required
-	parts := strings.SplitN(r.URL.Path[len(p.basePath):], "/", 2)
-	if len(parts) != 2 {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
+// PickPeer picks a peer according to key.
+func (p *HTTPPool) PickPeer(key string) (PeerGetter, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if peer := p.peers.Get(key); peer != "" && peer != p.self {
+		log.Printf("Pick peer %s", peer)
+		return p.httpGetters[peer], true
 	}
 
-	groupName := parts[0]
-	key := parts[1]
+	return nil, false
+}
 
-	group := GetGroup(groupName)
-	if group == nil {
-		http.Error(w, "no such group: "+groupName, http.StatusNotFound)
-		return
-	}
+// check that HTTPPool implements PeerPicker
+var _ PeerPicker = (*HTTPPool)(nil)
 
-	view, err := group.Get(key)
+type httpGetter struct {
+	baseURL string
+}
+
+func (h *httpGetter) Get(group string, key string) ([]byte, error) {
+	url := h.baseURL + "/" + group + "/" + key
+	res, err := http.Get(url)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Write(view.ByteSlice())
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned: %v", res.Status)
+	}
+
+	bytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response body: %v", err)
+	}
+
+	return bytes, nil
 }
-*/
+
+// check that httpGetter implements PeerGetter
+var _ PeerGetter = (*httpGetter)(nil)

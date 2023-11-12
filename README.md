@@ -6,6 +6,6 @@ learn from https://github.com/geektutu/7days-golang/
 - [√] Step 2 - Single Machine Concurrent Cache
 - [√] Step 3 - Launch a HTTP Server
 - [√] Step 4 - Consistent Hash Algorithm
-- [×] Step 5 - Communication between Distributed Nodes
+- [√] Step 5 - Communication between Distributed Nodes
 - [×] Step 6 - Cache Breakdown & Single Flight
 - [×] Step 7 - Use Protobuf as RPC Data Exchange Type
