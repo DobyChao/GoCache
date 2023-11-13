@@ -104,7 +104,6 @@ func (g *Group) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
 		return ByteView{}, err
 	}
 	value := ByteView{b: cloneBytes(bytes)}
-	g.populateCache(key, value)
 	return value, nil
 }
 

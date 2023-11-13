@@ -88,7 +88,8 @@ type httpGetter struct {
 }
 
 func (h *httpGetter) Get(group string, key string) ([]byte, error) {
-	url := h.baseURL + "/" + group + "/" + key
+	url := h.baseURL + group + "/" + key
+	log.Println("httpGetter url:", url)
 	res, err := http.Get(url)
 	if err != nil {
 		return nil, err

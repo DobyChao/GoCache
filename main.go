@@ -7,6 +7,7 @@ import (
 	"gocache"
 	"log"
 	"net/http"
+	"strings"
 )
 
 var db = map[string]string{
@@ -36,6 +37,7 @@ func startCacheServer(addr string, addrs []string, g *gocache.Group) {
 	r := gin.Default()
 	peers.LoadRouters(r)
 	log.Println("gocache is running at", addr)
+	addr = strings.TrimPrefix(addr, "http://")
 	r.Run(addr)
 }
 
@@ -52,6 +54,7 @@ func startAPIServer(apiAddr string, g *gocache.Group) {
 		c.Data(http.StatusOK, "application/octet-stream", view.ByteSlice())
 	})
 	log.Println("fontend server is running at", apiAddr)
+	apiAddr = strings.TrimPrefix(apiAddr, "http://")
 	r.Run(apiAddr)
 }
 
@@ -65,12 +68,12 @@ func main() {
 	flag.BoolVar(&api, "api", false, "start a api server?")
 	flag.Parse()
 
-	apiAddr := "localhost:9999"
+	apiAddr := "http://localhost:9999"
 
 	addrMap := map[int]string{
-		8001: "localhost:8001",
-		8002: "localhost:8002",
-		8003: "localhost:8003",
+		8001: "http://localhost:8001",
+		8002: "http://localhost:8002",
+		8003: "http://localhost:8003",
 	}
 
 	var addrs []string
@@ -83,5 +86,4 @@ func main() {
 		go startAPIServer(apiAddr, g)
 	}
 	startCacheServer(addrMap[port], []string(addrs), g)
-
 }
