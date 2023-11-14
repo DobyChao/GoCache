@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 var db = map[string]string{
@@ -20,6 +21,7 @@ func createGroup() *gocache.Group {
 	return gocache.NewGroup("scores", 2<<10, gocache.GetterFunc(
 		func(key string) ([]byte, error) {
 			log.Println("[SlowDB] search key", key)
+			time.Sleep(150 * time.Millisecond)  // simulate slow database
 			if v, ok := db[key]; ok {
 				return []byte(v), nil
 			}
@@ -86,4 +88,8 @@ func main() {
 		go startAPIServer(apiAddr, g)
 	}
 	startCacheServer(addrMap[port], []string(addrs), g)
+}
+
+func init() {
+	gin.SetMode(gin.ReleaseMode)
 }

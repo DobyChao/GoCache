@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"gocache/singleflight"
 )
 
 // A Group is a cache namespace and associated data loaded spread over
@@ -12,6 +13,8 @@ type Group struct {
 	getter    Getter
 	mainCache cache
 	peers     PeerPicker
+	// use singleflight.Group to make sure that each key is only fetched once
+	loader *singleflight.Group
 }
 
 // Getter loads data for a key.
@@ -47,6 +50,7 @@ func NewGroup(name string, cacheBytes int64, getter Getter) *Group {
 		mainCache: cache{
 			cacheBytes: cacheBytes,
 		},
+		loader: &singleflight.Group{},
 	}
 
 	groups[name] = g
@@ -86,27 +90,38 @@ func (g *Group) RegisterPeers(peers PeerPicker) {
 }
 
 func (g *Group) load(key string) (value ByteView, err error) {
-	if g.peers != nil {
-		if peer, ok := g.peers.PickPeer(key); ok {
-			if value, err = g.getFromPeer(peer, key); err == nil {
-				return value, nil
+	view, err := g.loader.Do(key, func() (interface{}, error) {
+		if g.peers != nil {
+			if peer, ok := g.peers.PickPeer(key); ok {
+				if value, err = g.getFromPeer(peer, key); err == nil {
+					return value, nil
+				}
+				log.Println("[GoCache] Failed to get from peer", err)
 			}
-			log.Println("[GoCache] Failed to get from peer", err)
 		}
+		// if no peers or peer failed, get locally
+		return g.getLocally(key)
+	})
+
+	if err == nil {
+		return view.(ByteView), nil
 	}
-	// if no peers or peer failed, get locally
-	return g.getLocally(key)
+	return
 }
 
+// getFromPeer gets the value from peer.
 func (g *Group) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
 	bytes, err := peer.Get(g.name, key)
 	if err != nil {
 		return ByteView{}, err
 	}
 	value := ByteView{b: cloneBytes(bytes)}
+	// no need to populate cache here
+
 	return value, nil
 }
 
+// getLocally gets the value from local.
 func (g *Group) getLocally(key string) (ByteView, error) {
 	bytes, err := g.getter.Get(key)
 
