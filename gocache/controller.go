@@ -5,6 +5,7 @@ import (
 	"log"
 	"sync"
 	"gocache/singleflight"
+	pb "gocache/cachepb"
 )
 
 // A Group is a cache namespace and associated data loaded spread over
@@ -111,14 +112,18 @@ func (g *Group) load(key string) (value ByteView, err error) {
 
 // getFromPeer gets the value from peer.
 func (g *Group) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
-	bytes, err := peer.Get(g.name, key)
+	req := &pb.Request{
+		Group: g.name,
+		Key:   key,
+	}
+	res := &pb.Response{}
+	err := peer.Get(req, res)
 	if err != nil {
 		return ByteView{}, err
 	}
-	value := ByteView{b: cloneBytes(bytes)}
 	// no need to populate cache here
 
-	return value, nil
+	return ByteView{b: res.Value}, nil
 }
 
 // getLocally gets the value from local.

@@ -8,6 +8,9 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	pb "gocache/cachepb"
+	"google.golang.org/protobuf/proto"
+	"net/url"
 )
 
 const (
@@ -52,7 +55,14 @@ func (p *HTTPPool) handleGetCache(c *gin.Context) {
 		return
 	}
 
-	c.Data(http.StatusOK, "application/octet-stream", view.ByteSlice())
+	// Write the value to the response body as a proto message.
+	body, err := proto.Marshal(&pb.Response{Value: view.ByteSlice()})
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	c.Data(http.StatusOK, "application/octet-stream", body)
 }
 
 // Set update the pool's list of peers.
@@ -87,26 +97,35 @@ type httpGetter struct {
 	baseURL string
 }
 
-func (h *httpGetter) Get(group string, key string) ([]byte, error) {
-	url := h.baseURL + group + "/" + key
-	log.Println("httpGetter url:", url)
-	res, err := http.Get(url)
+func (h *httpGetter) Get(in *pb.Request, out *pb.Response) error {
+	u := fmt.Sprintf(
+		"%v%v/%v",
+		h.baseURL,
+		url.QueryEscape(in.GetGroup()),
+		url.QueryEscape(in.GetKey()),
+	)
+	log.Println("httpGetter url:", u)
+	res, err := http.Get(u)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server returned: %v", res.Status)
+		return fmt.Errorf("server returned: %v", res.Status)
 	}
 
 	bytes, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response body: %v", err)
+		return fmt.Errorf("reading response body: %v", err)
 	}
 
-	return bytes, nil
+	if err := proto.Unmarshal(bytes, out); err != nil {
+		return fmt.Errorf("decoding response body: %v", err)
+	}
+
+	return nil
 }
 
 // check that httpGetter implements PeerGetter
