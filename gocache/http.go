@@ -3,14 +3,14 @@ package gocache
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	pb "gocache/cachepb"
 	"gocache/consistenthash"
+	"google.golang.org/protobuf/proto"
 	"io"
 	"log"
 	"net/http"
-	"sync"
-	pb "gocache/cachepb"
-	"google.golang.org/protobuf/proto"
 	"net/url"
+	"sync"
 )
 
 const (
@@ -37,6 +37,8 @@ func NewHTTPPool(self string) *HTTPPool {
 
 func (p *HTTPPool) LoadRouters(router *gin.Engine) {
 	router.GET(p.basePath+"/:groupname/:key", p.handleGetCache)
+	router.GET("/", p.handleCheckEnabled)
+	router.POST("/set-peers", p.handleSetPeers)
 }
 
 func (p *HTTPPool) handleGetCache(c *gin.Context) {
@@ -63,6 +65,21 @@ func (p *HTTPPool) handleGetCache(c *gin.Context) {
 	}
 
 	c.Data(http.StatusOK, "application/octet-stream", body)
+}
+
+func (p *HTTPPool) handleCheckEnabled(c *gin.Context) {
+	c.String(http.StatusOK, "ok")
+}
+
+func (p *HTTPPool) handleSetPeers(c *gin.Context) {
+	var peers []string
+	if err := c.ShouldBindJSON(&peers); err != nil {
+		c.String(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	p.Set(peers...)
+	c.String(http.StatusOK, "ok")
 }
 
 // Set update the pool's list of peers.
